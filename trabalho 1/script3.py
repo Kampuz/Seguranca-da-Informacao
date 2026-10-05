@@ -5,8 +5,11 @@ if __name__ == "__main__":
 
     nk = 8
 
-    key = input(f"\nChave ({4 * nk} caracteres): ").encode("utf-8")
-    text = input(f"Insira o texto: ").encode("utf-8")
+    # key = input(f"\nChave ({4 * nk} caracteres): ").encode("utf-8")
+    # text = input(f"Insira o texto: ").encode("utf-8")
+
+    key = "0123456789abcdef0123456789ABCDEF".encode("utf-8")
+    text = "Ola, mundo AES!".encode("utf-8")
 
     aes = AES(key, nk)
     encrypted_bytes = aes.encrypt(text)

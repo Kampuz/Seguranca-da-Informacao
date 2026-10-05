@@ -1,25 +1,358 @@
-\documentclass{beamer}
-% Title and Author Information
-\title{Your Presentation Title}
-\author{Your Name}
+\documentclass[aspectratio=169,11pt]{beamer}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazilian]{babel}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric,arrows.meta,positioning}
+
+\usetheme{Madrid}
+\usecolortheme{seahorse}
+\setbeamertemplate{navigation symbols}{}
+
+% Marca em vermelho tudo que voce deve preencher com os SEUS resultados
+\newcommand{\preencher}[1]{\textcolor{red}{[#1]}}
+
+\lstset{
+  basicstyle=\ttfamily\scriptsize,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  breaklines=true,
+  frame=single,
+  language=Python,
+  showstringspaces=false,
+  literate={ã}{{\~a}}1 {ç}{{\c c}}1 {é}{{\'e}}1 {ê}{{\^e}}1 {í}{{\'i}}1 {á}{{\'a}}1 {ó}{{\'o}}1
+}
+
+\title{Trabalho Prático: Implementação do AES}
+\subtitle{Advanced Encryption Standard em Python 3.13}
+\author{Miguel de Campos Rodrigues Moret}
+\institute{Segurança da Informação}
 \date{\today}
+
 \begin{document}
-% Title Slide
-\maketitle
-% Slide 1
+
+% ---------------------------------------------------------------- 1
 \begin{frame}
-   \frametitle{Slide Title}
-   This is the content of your first slide
-   \begin{itemize}a
-       \item Point 1
-       \item Point 2
-   \end{itemize}
+  \titlepage
 \end{frame}
-% Slide 2
-\begin{frame}{Another Slide Title}
-   Here you can add equations, images, or more text:
-   \[
-   E = mc^2
-   \]
+
+% ---------------------------------------------------------------- 2
+\begin{frame}{Introdução ao AES}
+  \begin{columns}[T]
+    \begin{column}{0.42\textwidth}
+      \begin{figure}
+        \centering
+        \includegraphics[width=\linewidth]{aes.jpg}
+      \end{figure}
+    \end{column}
+    \begin{column}{0.58\textwidth}
+      O Padrão de Criptografia Avançada (AES, em inglês) é uma especificação para a
+      criptografia de dados eletrônicos, definida no \textbf{FIPS PUB 197} e na
+      \textbf{ISO/IEC 18033-3}.
+      \vspace{0.4em}
+      \begin{itemize}
+        \item Cifra de bloco \textbf{simétrica}, baseada no algoritmo Rijndael
+        \item Bloco fixo de \textbf{128 bits} (16 bytes)
+        \item Chaves de \textbf{128, 192 ou 256 bits}
+        \item Padronizado pelo NIST em 2001, sucessor do DES
+        \item Estrutura de rede de substituição-permutação, não de Feistel
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
+
+% ---------------------------------------------------------------- 3
+\begin{frame}{Fundamentos teóricos das rodadas}
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \small
+      \begin{tabular}{lccc}
+        \toprule
+        & \textbf{128} & \textbf{192} & \textbf{256}\\
+        \midrule
+        Chave (words)  & 4  & 6  & 8 \\
+        Rodadas ($N$)  & 10 & 12 & 14\\
+        Chave exp. (words) & 44 & 52 & 60\\
+        Chave exp. (bytes) & 176 & 208 & 240\\
+        \bottomrule
+      \end{tabular}
+
+      \vspace{0.6em}
+      \textbf{Estado:} matriz $4\times4$ de bytes, preenchida por colunas.
+
+      \textbf{Expansão de chave:} \texttt{RotWord}, \texttt{SubWord} e XOR com \texttt{Rcon}.
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \small
+      \textbf{Rodada inicial:} AddRoundKey com a chave 0.
+
+      \textbf{Rodadas 1 a $N-1$:}
+      \begin{enumerate}
+        \item \textbf{SubBytes}: S-Box (confusão)
+        \item \textbf{ShiftRows}: deslocamento cíclico das linhas 0, 1, 2, 3
+        \item \textbf{MixColumns}: multiplicação por matriz fixa em $GF(2^8)$ (difusão)
+        \item \textbf{AddRoundKey}: XOR com a chave da rodada
+      \end{enumerate}
+      \textbf{Rodada final $N$:} sem MixColumns.
+
+      \textbf{Decriptação:} transformações inversas em ordem oposta
+      (InvSubBytes, InvShiftRows, InvMixColumns com 0E, 0B, 0D, 09).
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 4
+\begin{frame}[fragile]{Desenvolvimento do AES-128: Lógica}
+  \begin{columns}[T]
+    \begin{column}{0.46\textwidth}
+      \small
+      \textbf{Parâmetros:} chave de 16 bytes, $N=10$, 44 words.
+
+      \begin{itemize}
+        \item S-Box gerada em código: inverso multiplicativo em $GF(2^8)$ + transformação afim
+        \item \texttt{gmul}: multiplicação em $GF(2^8)$ com polinômio $x^8+x^4+x^3+x+1$
+        \item Estado: \texttt{state[linha][coluna] = bloco[linha + 4*coluna]}
+        \item Classe \texttt{AES(key, nk)}: a chave é expandida uma única vez no construtor
+        \item Texto livre: padding PKCS\#7 em blocos de 16 bytes (modo ECB, didático)
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.54\textwidth}
+\begin{lstlisting}
+def key_expansion(self, key):
+    w = [list(key[4*i:4*i+4])
+         for i in range(self.NK)]
+    for i in range(self.NK, 4*(self.NR+1)):
+        temp = w[i-1][:]
+        if i % self.NK == 0:
+            temp = self.sub_word(
+                       self.rot_word(temp))
+            temp[0] ^= self.RCON[i//self.NK]
+        w.append([w[i-self.NK][j] ^ temp[j]
+                  for j in range(4)])
+    return w
+\end{lstlisting}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 5
+\begin{frame}[fragile]{Desenvolvimento do AES-128: Resultados/Execução}
+  \small
+  \textbf{Validação com o vetor oficial FIPS-197:}
+  \begin{itemize}
+    \item Chave: \texttt{000102030405060708090a0b0c0d0e0f}
+    \item Texto: \texttt{00112233445566778899aabbccddeeff}
+    \item Cifra: \texttt{69c4e0d86a7b0430d8cdb78070b4c55a} \hfill $\Rightarrow$ \textbf{OK}
+  \end{itemize}
+
+  \vspace{0.3em}
+  \textbf{Execução do script (chave e texto digitados):}
+\begin{lstlisting}[language={}]
+Chave (16 caracteres): 0123456789abcdef
+Insira o texto: Ola, mundo AES!
+Cifrado (hex): 373d9381cb80943293bd1302805d4f2f
+Decifrado    : Ola, mundo AES!
+\end{lstlisting}
+  A decifragem recupera exatamente o texto original.
+\end{frame}
+
+% ---------------------------------------------------------------- 6
+\begin{frame}{Desenvolvimento do AES-192: Diferenças implementadas}
+  \small
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \begin{tabular}{lcc}
+        \toprule
+        & \textbf{AES-128} & \textbf{AES-192}\\
+        \midrule
+        Chave & 16 bytes & 24 bytes\\
+        $N_k$ & 4 & 6\\
+        Rodadas & 10 & 12\\
+        Chave expandida & 44 words & 52 words\\
+        \bottomrule
+      \end{tabular}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \begin{itemize}
+        \item Estrutura da rodada idêntica à do AES-128
+        \item Expansão de chave: \texttt{RotWord/SubWord/Rcon} a cada \textbf{6} words
+          (\texttt{i \% 6 == 0})
+        \item Rcon usado até o índice 8
+        \item Mais 2 rodadas $\Rightarrow$ 2 chaves de rodada adicionais
+      \end{itemize}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 7
+\begin{frame}{Desenvolvimento do AES-192: Resultados}
+  \small
+  \textbf{Vetor oficial FIPS-197:}
+  \begin{itemize}
+    \item Chave: \texttt{000102...16 17} (24 bytes)
+    \item Texto: \texttt{00112233445566778899aabbccddeeff}
+    \item Cifra: \texttt{dda97ca4864cdfe06eaf70a0ec0d7191} \hfill $\Rightarrow$ \textbf{OK}
+  \end{itemize}
+
+  \vspace{0.5em}
+  \textbf{Execução do script:}
+  \begin{itemize}
+    \item Chave: \preencher{24 caracteres usados}
+    \item Texto: \preencher{texto usado}
+    \item Cifrado (hex): \preencher{saída do seu script}
+    \item Decifrado: \preencher{texto recuperado}
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 8
+\begin{frame}[fragile]{Desenvolvimento do AES-256: Adequações para 14 rodadas}
+  \small
+  \begin{columns}[T]
+    \begin{column}{0.5\textwidth}
+      \begin{itemize}
+        \item Chave de 32 bytes, $N_k = 8$, $N=14$
+        \item Chave expandida: 60 words (240 bytes), 15 chaves de rodada
+        \item \textbf{Diferença no algoritmo:} como $N_k>6$, quando \texttt{i \% 8 == 4}
+          aplica-se apenas \texttt{SubWord} (sem RotWord e sem Rcon)
+        \item As rodadas em si são as mesmas, apenas repetidas 14 vezes
+      \end{itemize}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+\begin{lstlisting}
+if i % self.NK == 0:
+    temp = self.sub_word(
+               self.rot_word(temp))
+    temp[0] ^= self.RCON[i // self.NK]
+elif self.NK > 6 and i % self.NK == 4:
+    temp = self.sub_word(temp)  # so AES-256
+\end{lstlisting}
+    \end{column}
+  \end{columns}
+\end{frame}
+
+% ---------------------------------------------------------------- 9
+\begin{frame}{Desenvolvimento do AES-256: Resultados}
+  \small
+  \textbf{Vetor oficial FIPS-197:}
+  \begin{itemize}
+    \item Chave: \texttt{000102...1e 1f} (32 bytes)
+    \item Texto: \texttt{00112233445566778899aabbccddeeff}
+    \item Cifra: \texttt{8ea2b7ca516745bfeafc49904b496089} \hfill $\Rightarrow$ \textbf{OK}
+  \end{itemize}
+
+  \vspace{0.5em}
+  \textbf{Execução do script:}
+  \begin{itemize}
+    \item Chave: \preencher{32 caracteres usados}
+    \item Texto: \preencher{texto usado}
+    \item Cifrado (hex): \preencher{saída do seu script}
+    \item Decifrado: \preencher{texto recuperado}
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 10
+\begin{frame}[fragile]{Comprovação empírica do Efeito Avalanche}
+  \small
+  \textbf{Método:} cifrar, inverter \textbf{1 bit} aleatório do texto (ou da chave), cifrar de novo
+  e contar os bits diferentes entre as cifras (XOR + contagem de bits 1).
+
+  \vspace{0.3em}
+  \textbf{AES-128, texto \texttt{Ola, mundo AES!}, bit 92 alterado ($A\rightarrow I$):}
+\begin{lstlisting}[language={}]
+Cifra 1: 373d9381cb80943293bd1302805d4f2f
+Cifra 2: 69e9a2803adb0a00c7d99f8bf2ad0a0a
+Bits diferentes: 57/128 (44,5%)
+\end{lstlisting}
+
+  \begin{itemize}
+    \item Esperado: média de 64 bits (50\%), desvio padrão $\approx 5{,}7$ bits
+    \item Mudança na chave (AES-128): \preencher{bits/128}\quad
+          AES-192: \preencher{bits/128}\quad AES-256: \preencher{bits/128}
+    \item Evolução por rodada (1, $\sim$20, $\sim$58, ...): \preencher{cole a tabela por rodada do seu teste}
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 11
+\begin{frame}{Análise Comparativa: Desempenho Computacional}
+  \small
+  \begin{tabular}{lccc}
+    \toprule
+    & \textbf{AES-128} & \textbf{AES-192} & \textbf{AES-256}\\
+    \midrule
+    Rodadas & 10 & 12 & 14\\
+    Custo teórico (relativo) & 1,0$\times$ & 1,2$\times$ & 1,4$\times$\\
+    Cifrar (ms/bloco) & \preencher{...} & \preencher{...} & \preencher{...}\\
+    Decifrar (ms/bloco) & \preencher{...} & \preencher{...} & \preencher{...}\\
+    Expansão de chave (ms) & \preencher{...} & \preencher{...} & \preencher{...}\\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.6em}
+  \begin{itemize}
+    \item O custo cresce com o número de rodadas, aproximadamente 20\% por passo de chave
+    \item Em Python puro o custo por rodada (multiplicações em $GF(2^8)$) domina o tempo
+    \item Decifrar tende a ser mais lento: InvMixColumns usa constantes maiores (0E, 0B, 0D, 09)
+    \item Medições: \preencher{CPU, SO e número de blocos usados no benchmark}
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 12
+\begin{frame}{Análise Comparativa: Segurança das 3 Chaves}
+  \small
+  \begin{tabular}{lccc}
+    \toprule
+    & \textbf{AES-128} & \textbf{AES-192} & \textbf{AES-256}\\
+    \midrule
+    Espaço de chaves & $2^{128}$ & $2^{192}$ & $2^{256}$\\
+    Força bruta (aprox.) & $3{,}4\times10^{38}$ & $6{,}3\times10^{57}$ & $1{,}2\times10^{77}$\\
+    Margem sobre 128 bits & 1$\times$ & $2^{64}\times$ & $2^{128}\times$\\
+    \bottomrule
+  \end{tabular}
+
+  \vspace{0.6em}
+  \begin{itemize}
+    \item Os três tamanhos são considerados seguros hoje contra força bruta
+    \item Os melhores ataques publicados (por exemplo, \emph{biclique}) reduzem a
+          complexidade em apenas poucos bits, sem quebrar o AES na prática
+    \item Há ataques teóricos de chaves relacionadas contra AES-192/256, de pouca relevância prática
+    \item Computadores quânticos (algoritmo de Grover) reduzem a segurança efetiva à metade:
+          AES-128 $\approx 2^{64}$, AES-256 $\approx 2^{128}$
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 13
+\begin{frame}{Desafios Técnicos}
+  \small
+  \begin{itemize}
+    \item \textbf{Aritmética em $GF(2^8)$:} implementar \texttt{gmul} e gerar a S-Box
+          (inverso multiplicativo + transformação afim) sem tabelas prontas
+    \item \textbf{Estado em ordem de colunas:} \texttt{reshape(4,4).T} e a conversão
+          correta de bytes para matriz
+    \item \textbf{Tipos:} \texttt{np.array(bytes)} não gera inteiros; foi necessário \texttt{list(block)}
+    \item \textbf{Bits vs bytes:} o padding e a contagem do avalanche precisam operar em bytes e bits corretos
+    \item \textbf{Padding PKCS\#7:} textos de 16 bytes ou mais geram um segundo bloco e
+          alteram a medição do avalanche
+    \item \textbf{AES-256:} passo extra de \texttt{SubWord} na expansão de chave
+    \item \textbf{Validação:} uso dos vetores de teste oficiais da FIPS-197
+    \item \textbf{ECB:} aprendizado de que blocos iguais geram cifras iguais (apenas didático)
+  \end{itemize}
+\end{frame}
+
+% ---------------------------------------------------------------- 14
+\begin{frame}{Conclusões}
+  \begin{itemize}
+    \item Três versões do AES (128, 192 e 256) implementadas do zero, sem bibliotecas criptográficas
+    \item Cifragem e decifragem validadas contra os vetores oficiais da FIPS-197
+    \item Efeito avalanche comprovado: 1 bit alterado muda cerca de metade dos 128 bits da cifra
+    \item Mais rodadas $\Rightarrow$ mais custo computacional e maior margem de segurança
+    \item Possível evolução: modos de operação seguros (CBC, CTR, GCM) no lugar do ECB
+  \end{itemize}
+  \vspace{1.2em}
+  \begin{center}
+    {\Large \textbf{Dúvidas ou comentários?}}
+  \end{center}
+\end{frame}
+
 \end{document}
