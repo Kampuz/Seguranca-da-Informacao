@@ -1,3 +1,8 @@
+import os
+
+os.system("")
+
+
 BITS_IN_TEXT = 128
 
 def receive_inputs(bits_in_text: int, bits_in_key: int) -> tuple:
@@ -18,24 +23,39 @@ def receive_inputs(bits_in_text: int, bits_in_key: int) -> tuple:
     return text, key
 
 
-def compare_cifras(cifra1: list, cifra2: list) -> None:
+def compare_encrypted_bytes(cifra1: bytes, cifra2: bytes) -> None:
     """
     Function to compare two lists of bits and print the differences.
     """
-    differences = sum(bit1 != bit2 for bit1, bit2 in zip(cifra1, cifra2))
+
+    if len(cifra1) != len(cifra2):
+        raise ValueError("As cifras precisam ter o mesmo tamanho")
+    
+    diferent_bits = sum(bin(a ^ b).count("1") for a, b in zip(cifra1, cifra2))
+    diferent_bytes = sum(a != b for a, b in zip(cifra1, cifra2))
+    total_bits = len(cifra1) * 8
 
 
-    print(f"\nFirst cifra: ")
-    for i in range(len(cifra1)):
-        if cifra1[i] != cifra2[i]:
-            print(f"\033[91m{cifra1[i]}\033[0m")
-        else:
-            print(f"{cifra1[i]}")
-    print(f"\nSecond cifra: ")
-    for i in range(len(cifra2)):
-            if cifra2[i] != cifra1[i]:
-                print(f"\033[92m{cifra2[i]}\033[0m")
-            else:
-                print(f"{cifra2[i]}")
+    def formatar(c1: bytes, c2: bytes, cor: str) -> str:
+        return " ".join(
+            f"{cor}{a:02x}\033[0m" if a != b else f"{a:02x}"
+            for a, b in zip(c1, c2)
+        )
 
-    print(f"\nNumber of different bits: {differences}/{len(cifra1)}")
+    print(f"\nPrimeira cifra:", formatar(cifra1, cifra2, "\033[91m"))
+    print(f"Segunda cifra:", formatar(cifra2, cifra1, "\033[92m"))
+    print(f"\nBytes diferentes: {diferent_bytes}/{len(cifra1)}")
+    print(f"Bits diferentes: {diferent_bits}/{total_bits} "
+          f"({diferent_bits / total_bits:.1%})")
+
+def gmul(a: int, b: int) -> int:
+    p = 0
+    for _ in range(8):
+        if b & 1:
+            p ^= a
+        carry = a & 0x80
+        a = (a << 1) & 0xFF
+        if carry:
+            a ^= 0x1B
+        b >>= 1
+    return p

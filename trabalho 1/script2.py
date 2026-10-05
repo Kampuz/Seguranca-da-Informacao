@@ -1,24 +1,22 @@
+from aes import AES
+from auxiliar import compare_encrypted_bytes
 
-import random
-from auxi import bits_list_to_text, change_bit, recieve_inputs, to_bits_list, compare_results, generate_cifra
+if __name__ == "__main__":
 
+    nk = 6
 
-BITS_IN_KEY = 192
+    key = input(f"\nChave ({4 * nk} caracteres): ").encode("utf-8")
+    text = input(f"Insira o texto: ").encode("utf-8")
 
-text, key = recieve_inputs(BITS_IN_KEY)
-text_bits = to_bits_list(text)
-key_bits = to_bits_list(key)
+    aes = AES(key, nk)
+    encrypted_bytes = aes.encrypt(text)
+    print("Cifrado (hex):", encrypted_bytes.hex())
+    print("Decifrado    :", aes.decrypt(encrypted_bytes).decode("utf-8"))
 
-criptography = generate_cifra(text_bits, key_bits)
+    new_text = aes.flip_bit(text)
 
+    new_encrypted_bytes = aes.encrypt(new_text)
+    print("\nCifrado (hex):", new_encrypted_bytes.hex())
+    print("Decifrado    :", aes.decrypt(new_encrypted_bytes).decode("utf-8"))
 
-if (random.randint(0, 1) == 1):
-    text_bits = change_bit(text_bits)
-    print(f"\nChanged text to: {bits_list_to_text(text_bits)} ({text_bits})")
-else:
-    key_bits = change_bit(key_bits)
-    print(f"\nChanged key to: {bits_list_to_text(key_bits)} ({key_bits})")  
-
-new_criptography = generate_cifra(text_bits, key_bits)
-
-compare_results(criptography, new_criptography)
+    compare_encrypted_bytes(encrypted_bytes, new_encrypted_bytes)
