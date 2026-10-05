@@ -119,20 +119,12 @@
       \end{itemize}
     \end{column}
     \begin{column}{0.54\textwidth}
-\begin{lstlisting}
-def key_expansion(self, key):
-    w = [list(key[4*i:4*i+4])
-         for i in range(self.NK)]
-    for i in range(self.NK, 4*(self.NR+1)):
-        temp = w[i-1][:]
-        if i % self.NK == 0:
-            temp = self.sub_word(
-                       self.rot_word(temp))
-            temp[0] ^= self.RCON[i//self.NK]
-        w.append([w[i-self.NK][j] ^ temp[j]
-                  for j in range(4)])
-    return w
-\end{lstlisting}
+\begin{figure}
+            \centering
+            \includegraphics[width=1\linewidth]{code.png}
+            \caption{Lógica de expansão de chave}
+            \label{fig:placeholder}
+        \end{figure}
     \end{column}
   \end{columns}
 \end{frame}
@@ -199,10 +191,10 @@ Decifrado    : Ola, mundo AES!
   \vspace{0.5em}
   \textbf{Execução do script:}
   \begin{itemize}
-    \item Chave: \preencher{24 caracteres usados}
-    \item Texto: \preencher{texto usado}
-    \item Cifrado (hex): \preencher{saída do seu script}
-    \item Decifrado: \preencher{texto recuperado}
+    \item Chave: \texttt{0123456789abcdef01234567}
+    \item Texto: \texttt{Ola, mundo AES!}
+    \item Cifrado (hex): \texttt{7fcb62b0d1f764ce181b7140cde0fea2}
+    \item Decifrado: \texttt{Ola, mundo AES!}
   \end{itemize}
 \end{frame}
 
@@ -220,15 +212,12 @@ Decifrado    : Ola, mundo AES!
       \end{itemize}
     \end{column}
     \begin{column}{0.5\textwidth}
-\begin{lstlisting}
-if i % self.NK == 0:
-    temp = self.sub_word(
-               self.rot_word(temp))
-    temp[0] ^= self.RCON[i // self.NK]
-elif self.NK > 6 and i % self.NK == 4:
-    temp = self.sub_word(temp)  # so AES-256
-\end{lstlisting}
-    \end{column}
+\begin{figure}
+        \centering
+        \includegraphics[width=1\linewidth]{code2.png}
+        \label{fig:da}
+    \end{figure}
+        \end{column}
   \end{columns}
 \end{frame}
 
@@ -245,10 +234,10 @@ elif self.NK > 6 and i % self.NK == 4:
   \vspace{0.5em}
   \textbf{Execução do script:}
   \begin{itemize}
-    \item Chave: \preencher{32 caracteres usados}
-    \item Texto: \preencher{texto usado}
-    \item Cifrado (hex): \preencher{saída do seu script}
-    \item Decifrado: \preencher{texto recuperado}
+    \item Chave: \texttt{0123456789abcdef0123456789ABCDEF}
+    \item Texto: \texttt{Ola, mundo AES!}
+    \item Cifrado (hex): \texttt{59f5d09c2ad6c0c2f673c2e861749f6e}
+    \item Decifrado: \texttt{Ola, mundo AES!}
   \end{itemize}
 \end{frame}
 
@@ -259,18 +248,17 @@ elif self.NK > 6 and i % self.NK == 4:
   e contar os bits diferentes entre as cifras (XOR + contagem de bits 1).
 
   \vspace{0.3em}
-  \textbf{AES-128, texto \texttt{Ola, mundo AES!}, bit 92 alterado ($A\rightarrow I$):}
+  \textbf{AES-128, texto \texttt{Ola, mundo AES!}, bit 36 alterado ($A\rightarrow I$):}
 \begin{lstlisting}[language={}]
 Cifra 1: 373d9381cb80943293bd1302805d4f2f
-Cifra 2: 69e9a2803adb0a00c7d99f8bf2ad0a0a
-Bits diferentes: 57/128 (44,5%)
+Cifra 2: b75a07efdd4591befc1a770aa29eec46
+Bits diferentes: 55/128 (43,0%)
 \end{lstlisting}
 
   \begin{itemize}
     \item Esperado: média de 64 bits (50\%), desvio padrão $\approx 5{,}7$ bits
-    \item Mudança na chave (AES-128): \preencher{bits/128}\quad
-          AES-192: \preencher{bits/128}\quad AES-256: \preencher{bits/128}
-    \item Evolução por rodada (1, $\sim$20, $\sim$58, ...): \preencher{cole a tabela por rodada do seu teste}
+    \item Mudança na chave (AES-128): 55/128\quad
+          AES-192: 36/128\quad AES-256: 64/128
   \end{itemize}
 \end{frame}
 
@@ -282,10 +270,10 @@ Bits diferentes: 57/128 (44,5%)
     & \textbf{AES-128} & \textbf{AES-192} & \textbf{AES-256}\\
     \midrule
     Rodadas & 10 & 12 & 14\\
-    Custo teórico (relativo) & 1,0$\times$ & 1,2$\times$ & 1,4$\times$\\
-    Cifrar (ms/bloco) & \preencher{...} & \preencher{...} & \preencher{...}\\
-    Decifrar (ms/bloco) & \preencher{...} & \preencher{...} & \preencher{...}\\
-    Expansão de chave (ms) & \preencher{...} & \preencher{...} & \preencher{...}\\
+    Custo teórico (relativo) & 1,0$\times$ & 1,16$\times$ & 1,36$\times$\\
+    Cifrar (ms/bloco) & 1.368 & 1.367 & 0.025 \\
+    Decifrar (ms/bloco) & 1.591 & 1.644 & 0.027\\
+    Expansão de chave (ms) & 1.859 & 1.948 & 0.035 \\
     \bottomrule
   \end{tabular}
 
@@ -294,7 +282,7 @@ Bits diferentes: 57/128 (44,5%)
     \item O custo cresce com o número de rodadas, aproximadamente 20\% por passo de chave
     \item Em Python puro o custo por rodada (multiplicações em $GF(2^8)$) domina o tempo
     \item Decifrar tende a ser mais lento: InvMixColumns usa constantes maiores (0E, 0B, 0D, 09)
-    \item Medições: \preencher{CPU, SO e número de blocos usados no benchmark}
+    \item Medições: SO: Windows-10-10.0.19045-SP0 | CPU: Intel64 Family 6 Model 165 Stepping 3, GenuineIntel núcleos: 8 | 200 blocos por medição, mediana de 5 repetições.
   \end{itemize}
 \end{frame}
 
