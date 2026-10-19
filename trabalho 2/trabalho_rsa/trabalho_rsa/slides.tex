@@ -1,0 +1,210 @@
+\documentclass[aspectratio=169, 10pt]{beamer}
+
+% --- Theme & Color Configuration ---
+\usetheme{Madrid}
+\usecolortheme{whale}
+
+\definecolor{primaryDark}{RGB}{30, 41, 59}     % Slate 800
+\definecolor{accentBlue}{RGB}{37, 99, 235}     % Blue 600
+\definecolor{bgGray}{RGB}{248, 250, 252}       % Slate 50
+
+\setbeamercolor{palette primary}{bg=primaryDark, fg=white}
+\setbeamercolor{palette secondary}{bg=accentBlue, fg=white}
+\setbeamercolor{palette tertiary}{bg=primaryDark, fg=white}
+\setbeamercolor{titlelike}{bg=primaryDark, fg=white}
+\setbeamercolor{block title}{bg=accentBlue, fg=white}
+\setbeamercolor{block body}{bg=bgGray, fg=black}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}[frame number]
+
+% --- Font & Language Setup ---
+\usepackage{fontspec}
+\usepackage[english, bidi=basic, provide=*]{babel}
+\babelprovide[import, onchar=ids fonts]{portuguese}
+\babelfont{rm}{Noto Sans}
+\babelfont{sf}{Noto Sans}
+
+\usepackage{amsmath, amssymb}
+\usepackage{booktabs}
+\usepackage{listings}
+
+\title[Criptografia RSA]{Criptografia RSA}
+\subtitle{Fundamentação Teórica e Implementação Prática}
+\author{Segurança da Informação / Criptografia Aplicada}
+\date{\today}
+
+\begin{document}
+
+% --- Slide 1: Title ---
+\begin{frame}
+    \titlepage
+\end{frame}
+
+% --- Slide 2: Visão Geral ---
+\begin{frame}{Visão Geral do Conteúdo}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{1. Conceito e História}
+                \begin{itemize}
+                    \item Criptografia simétrica vs. assimétrica
+                    \item Origem histórica (Diffie-Hellman, RSA)
+                \end{itemize}
+            \end{block}
+            \begin{block}{2. Matemática do RSA}
+                \begin{itemize}
+                    \item Geração de chaves passo a passo
+                    \item Exemplo numérico e fórmulas
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{3. Segurança e Ameaças}
+                \begin{itemize}
+                    \item Dificuldade de fatoração
+                    \item Tamanho de chaves e Criptografia Quântica
+                \end{itemize}
+            \end{block}
+            \begin{block}{4. Aplicação Prática}
+                \begin{itemize}
+                    \item Arquitetura do código em Python
+                    \item Chat seguro via Sockets TCP
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Slide 3: Por que Chave Pública? ---
+\begin{frame}{Criptografia Simétrica vs. Assimétrica}
+    \begin{table}
+        \centering
+        \begin{tabular}{lp{5.5cm}p{5.5cm}}
+            \toprule
+            \textbf{Característica} & \textbf{Simétrica (ex.: AES)} & \textbf{Assimétrica / RSA} \\
+            \midrule
+            \textbf{Chaves} & Uma única chave secreta compartilhada & Par de chaves: Pública e Privada \\
+            \textbf{Vantagem} & Alta velocidade de processamento & Elimina a troca secreta prévia de chaves \\
+            \textbf{Desvantagem} & Desafio seguro na distribuição da chave & Desempenho computacional mais lento \\
+            \textbf{Aplicação} & Cifragem de grandes volumes de dados & Troca de chaves de sessão e assinaturas \\
+            \bottomrule
+        \end{tabular}
+    \end{table}
+    \vspace{0.3cm}
+    \centering
+    \textbf{Princípio do RSA:} Cifra-se com a \textit{chave pública} do destinatário; apenas a \textit{chave privada} correspondente decifra.
+\end{frame}
+
+% --- Slide 4: Matemática do RSA ---
+\begin{frame}{Geração de Chaves em 5 Passos}
+    \begin{enumerate}
+        \item \textbf{Seleção de Primos:} Escolher dois primos grandes e distintos, $p$ e $q$.
+        \item \textbf{Módulo do RSA ($n$):} Calcular $n = p \cdot q$ (parte pública da chave).
+        \item \textbf{Totiente de Euler ($\phi$):} Calcular $\phi(n) = (p - 1)(q - 1)$.
+        \item \textbf{Expoente Público ($e$):} Escolher $e$ tal que $1 < e < \phi(n)$ e $\text{mdc}(e, \phi(n)) = 1$.
+        \item \textbf{Expoente Privado ($d$):} Calcular $d \equiv e^{-1} \pmod{\phi(n)}$ (inverso modular).
+    \end{enumerate}
+
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Chave Pública}
+                $(e, n)$ --- Pode ser divulgada abertamente.
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Chave Privada}
+                $(d, n)$ --- Deve ser mantida sob segredo absoluto.
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Slide 5: Exemplo Numérico ---
+\begin{frame}{Exemplo Numérico e Cifragem}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Parâmetros do Exemplo}
+                \begin{itemize}
+                    \item Primos: $p = 61, \quad q = 53$
+                    \item Módulo: $n = 61 \times 53 = 3233$
+                    \item Totiente: $\phi(n) = 60 \times 52 = 3120$
+                    \item Exp. Público: $e = 17$
+                    \item Exp. Privado: $d = 2753$
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Cifragem e Decifragem}
+                Para uma mensagem $m = 65$:
+                \begin{align*}
+                    c &= m^e \pmod n = 65^{17} \pmod{3233} = 2790 \\[4pt]
+                    m &= c^d \pmod n = 2790^{2753} \pmod{3233} = 65
+                \end{align*}
+            \end{block}
+            \small
+            \textbf{Validação:} $(m^e)^d \equiv m^{e \cdot d} \equiv m \pmod n$ graças ao Teorema de Euler.
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Slide 6: Segurança e Tamanho de Chaves ---
+\begin{frame}{Segurança, Chaves e Ameaçadoras Futuras}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Recomendações de Chave}
+                \begin{itemize}
+                    \item \textbf{512 bits:} Inseguro (quebrado empiricamente).
+                    \item \textbf{1024 bits:} Desaconselhado / Obsoleto.
+                    \item \textbf{2048 bits:} Padrão mínimo recomendado atual.
+                    \item \textbf{3072+ bits:} Seguro para longo prazo.
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Ameaças e Vulnerabilidades}
+                \begin{itemize}
+                    \item \textbf{Fatoração de $n$:} Base da segurança. Algoritmos modernos como GNFS exigem $O(e^c)$ operações.
+                    \item \textbf{Criptografia Quântica:} O \textit{Algoritmo de Shor} fatora inteiros em tempo polinomial em computadores quânticos.
+                    \item \textbf{Ataques Práticos:} Uso de RSA puro sem \textit{padding} (OAEP) permite exploração por maleabilidade.
+                \end{itemize}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Slide 7: Implementação e Chat ---
+\begin{frame}{Implementação do Chat Criptografado}
+    \begin{columns}[T]
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Componentes do Núcleo (`rsa\_core.py`)}
+                \begin{itemize}
+                    \item \textbf{Miller-Rabin:} Teste probabilístico de primalidade.
+                    \item \textbf{Euclides Estendido:} Cálculo do inverso modular $d$.
+                    \item \textbf{Square-and-Multiply:} Exponenciação modular rápida $a^b \pmod n$.
+                \end{itemize}
+            \end{block}
+        \end{column}
+        \begin{column}{0.48\textwidth}
+            \begin{block}{Fluxo de Rede (Sockets TCP)}
+                \begin{enumerate}
+                    \item Conexão cliente-servidor estabelecida.
+                    \item Handshake de chaves públicas.
+                    \item Cifragem local das mensagens enviadas.
+                    \item Decifragem em tempo real das mensagens recebidas.
+                \end{enumerate}
+            \end{block}
+        \end{column}
+    \end{columns}
+\end{frame}
+
+% --- Slide 8: Conclusão ---
+\begin{frame}{Conclusão}
+    \begin{itemize}
+        \item \textbf{Fundamento Histórico:} O RSA resolveu o problema crítico da troca de chaves em redes abertas.
+        \item \textbf{Dependência Matemática:} A segurança depende diretamente da complexidade computacional da fatoração de inteiros grandes.
+        \item \textbf{Boas Práticas:} Em ambientes reais, o RSA deve ser combinado com esquemas de preenchimento seguro (OAEP) e certificados digitais (X.509/PKI).
+        \item \textbf{Perspectiva de Futuro:} O avanço do processamento quântico motiva a transição contínua para algoritmos da Criptografia Pós-Quântica (PQC).
+    \end{itemize}
+\end{frame}
+
+\end{document}
