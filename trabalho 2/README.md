@@ -1,65 +1,70 @@
-# Chat Seguro com RSA implementado do zero
+# Chat Seguro com RSA
 
-Trabalho Prático – Segurança da Informação / Criptografia Aplicada
+Trabalho Prático - Segurança da Informação / Criptografia Aplicada
 Python 3.13.5 · somente biblioteca padrão (`socket`, `threading`, `secrets`, `time`).
 Nenhuma biblioteca de criptografia é utilizada.
 
-## Arquivos
+## Conteúdo do pacote
 
-|Arquivo|Função|
+| Arquivo | Descrição |
 |---|---|
-|`rsa_core.py`|RSA: MDC, Euclides estendido, inverso modular, exponenciação modular, Miller-Rabin, geração de chaves, cifrar/decifrar texto|
-|`chat_common.py`|Handshake, protocolo e logs, compartilhados por servidor e cliente|
-|`chat_server.py`|Nó servidor (aguarda conexão)|
-|`chat_client.py`|Nó cliente (conecta ao servidor)|
+| `relatorio_teorico.pdf` | Parte 1: fundamentação teórica do RSA |
+| `slides_rsa.pptx` | 12 slides para a apresentação |
+| `rsa_core.py` | Parte 2: RSA (MDC, inverso modular, Miller-Rabin, chaves, cifrar/decifrar) |
+| `chat_server.py` / `chat_client.py` | Parte 3: nós servidor e cliente do chat |
+| `chat_common.py` | Código compartilhado do chat (handshake, mensagens, logs) |
 
-## Como executar
+## Como executar o chat
 
 Abra **dois terminais** na pasta do projeto.
 
-### Terminal 1 – servidor
-
-``` txt
-
+**Terminal 1 - servidor** (aguarda a conexão):
+```
 python chat_server.py 5000
 ```
-
-### Terminal 2 – cliente
-
-``` txt
+**Terminal 2 - cliente** (inicia a conexão):
+```
 python chat_client.py 127.0.0.1 5000
 ```
+Para usar em duas máquinas, troque `127.0.0.1` pelo IP do servidor e libere a porta no firewall.
 
-Para usar em duas máquinas, troque `127.0.0.1` pelo IP do servidor (e libere a porta no firewall).
+Assim que conectam, os dois nós geram suas chaves e fazem o handshake automaticamente.
+Digite uma mensagem e pressione Enter para enviar; `/sair` encerra a conversa.
 
-Digite uma mensagem e pressione Enter para enviar. Digite `/sair` para encerrar.
+Teste isolado do módulo RSA: `python rsa_core.py`
 
-Teste rápido do módulo RSA isolado: `python rsa_core.py`
+## Como visualizar os logs de criptografia
 
-## O que aparece nos logs
+Os logs aparecem no próprio terminal, em tempo real, com hora e etiqueta:
 
-Cada nó mostra, em tempo real:
+| Etiqueta | O que mostra |
+|---|---|
+| `[RSA]` | Geração do par de chaves (a chave privada nunca é exibida nem enviada) |
+| `[HANDSHAKE]` | Envio da minha chave pública `(e, n)` e recebimento da chave do outro nó |
+| `[CIFRADO]` | Mensagem em texto claro sendo cifrada com a chave pública do destinatário |
+| `[REDE ->]` | Cifra (hexadecimal) que efetivamente trafega pela rede |
+| `[REDE <-]` | Cifra recebida |
+| `[DECIFRADO]` | Texto recuperado com a minha chave privada |
 
-1. `[RSA]` – geração do par de chaves (1024 bits); a chave privada nunca é exibida nem enviada.
-2. `[HANDSHAKE]` – envio da própria chave pública `(e, n)` e recebimento da chave do outro nó.
-3. `[CIFRADO]` / `[REDE ->]` – mensagem em texto claro sendo cifrada com a **chave pública do destinatário** e a cifra (hexadecimal) que trafega na rede.
-4. `[REDE <-]` / `[DECIFRADO]` – cifra recebida e o texto recuperado com a **chave privada** local.
-
-Quem interceptar o tráfego (ex.: Wireshark na porta 5000) verá apenas `PUBKEY ...` e `MSG <hexadecimal ilegível>`.
+Para comprovar que a interceptação só expõe dados ilegíveis, capture a porta do chat com o
+Wireshark (filtro `tcp.port == 5000`): só aparecem as linhas `PUBKEY <e> <n>` (chaves públicas)
+e `MSG <hexadecimal>`.
 
 ## Protocolo
 
-Texto, uma mensagem por linha: `PUBKEY <e> <n>` (handshake), `MSG <cifra_hex>`, `BYE`.
+Texto ASCII, uma mensagem por linha: `PUBKEY <e_hex> <n_hex>` (handshake), `MSG <cifra_hex>`, `BYE`.
 
 ## Funcionamento do RSA implementado
 
-- **Chaves:** dois primos p, q (Miller-Rabin com 40 rodadas), n = p·q, φ = (p−1)(q−1), e = 65537, d = e⁻¹ mod φ (Euclides estendido).
-- **Texto → blocos:** string → UTF-8 → blocos de (k−2) bytes, k = tamanho de n em bytes. Cada bloco recebe o prefixo `0x01` (preserva zeros à esquerda e garante m < n) e vira um inteiro.
-- **Cifrar:** c = mᵉ mod n (square-and-multiply). **Decifrar:** m = cᵈ mod n.
-- **Saída:** blocos cifrados concatenados em hexadecimal, largura fixa por bloco.
+- **Chaves:** p e q primos (Miller-Rabin, 40 rodadas), n = p·q, φ = (p−1)(q−1), e = 65537,
+  d = e⁻¹ mod φ (Euclides estendido). Módulo de 1024 bits por padrão.
+- **Texto → blocos:** string → UTF-8 → blocos de (k−2) bytes (k = tamanho de n em bytes), com o
+  prefixo `0x01` (preserva zeros à esquerda e garante m < n) → inteiros.
+- **Cifrar:** c = mᵉ mod n. **Decifrar:** m = cᵈ mod n (exponenciação modular rápida).
+- **Saída:** blocos cifrados concatenados em hexadecimal, com largura fixa por bloco.
 
 ## Limitações (didáticas)
 
-- RSA sem padding OAEP é determinístico (mesma mensagem → mesma cifra) e vulnerável a ataques conhecidos.
-- Não há autenticação das chaves públicas: um atacante ativo (man-in-the-middle) poderia trocar as chaves no handshake.
-- `secrets` (biblioteca padrão) é usado apenas como fonte de números aleatórios.
+- RSA sem padding OAEP é determinístico e maleável; não use em produção.
+- As chaves públicas não são autenticadas: um atacante ativo (man-in-the-middle) poderia trocá-las
+  no handshake.
